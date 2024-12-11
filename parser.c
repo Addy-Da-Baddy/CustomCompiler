@@ -12,13 +12,12 @@ typedef struct Node{
 }  Node;
 
 
-/* Node* createNode(TokenType type){
+Node* createNode(TokenType type, char* value){
     Node* newNode = (Node*)malloc(sizeof(Node));
     if (!newNode){
         printf("MemLoc failiure. Retry. \n");
         exit(1);
     }
-    char* value = NULL;
     newNode->type = type;
     if (value){
         newNode->value = value;
@@ -28,30 +27,24 @@ typedef struct Node{
     }
     newNode->right = NULL;
     newNode->left = NULL;
-}*/
+    return newNode;
+}
 
 void printAST(Node* root){
     if (root==NULL)
         return;
-    print_tree(root->left);
+    printAST(root->left);
     printf("Node: Type = %d, Value = %s\n", root->type, root->value ? root->value : "NULL");
-    print_tree(root->right);
+    printAST(root->right);
 }
 Token *parser(Token* tokens){
     Token *current_token = &tokens[0];
-    Node root ;
-    Node left;
-    Node right;
-    root.type = STRING;
-    root.value = "Hello";
-    left.type = KEYWORD;
-    left.value = "print";
-    right.type = INT;
-    right.value = "5";
-    root.left = &left;
-    root.right = &right;
-    left.right = left.left = right.right = right.left = NULL;
-    print_tree(&root);
+    Node* root = createNode(STRING, "hello world");
+    Node* left = createNode(KEYWORD, "print");
+    Node* right = createNode(INT, "10");
+    root->left = left;
+    root->right = right;
+    printAST(root);
     return current_token; 
 }
 
