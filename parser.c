@@ -37,15 +37,26 @@ void printAST(Node* root){
     printf("Node: Type = %d, Value = %s\n", root->type, root->value ? root->value : "NULL");
     printAST(root->right);
 }
+
+Node* parsePrimary (Token** currentToken){
+    Token* token = *currentToken;
+    if (token->type == INT|| token->type == IDENTIFIER || token->type == STRING){
+        Node* newNode = createNode(token->type, token->stringValue);
+        (*currentToken)++;
+        return newNode;
+    }
+    printf("Expected Primary Expression");
+    exit(1);
+}
+
 Token *parser(Token* tokens){
     Token *current_token = &tokens[0];
-    Node* root = createNode(STRING, "hello world");
+    Node* root = createNode(BEGINNING, "Beginning Token");
     Node* left = createNode(KEYWORD, "print");
     Node* right = createNode(INT, "10");
     root->left = left;
     root->right = right;
     printAST(root);
-    return current_token; 
 }
 
 
