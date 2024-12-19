@@ -11,6 +11,20 @@ typedef struct Node{
     struct Node* left;
 }  Node;
 
+char* tokenString(TokenType token) {
+    switch (token) {
+        case BEGINNING: return "BEGINNING";
+        case INT: return "INT";
+        case KEYWORD: return "KEYWORD";
+        case SEPARATOR: return "SEPARATOR";
+        case OPERATOR: return "OPERATOR";
+        case IDENTIFIER: return "IDENTIFIER";
+        case STRING: return "STRING";
+        case COMP: return "COMP";
+        case END_OF_TOKENS: return "END_OF_TOKENS";
+        default: return "UNKNOWN";
+    }
+}
 
 Node* createNode(TokenType type, char* value){
     Node* newNode = (Node*)malloc(sizeof(Node));
@@ -34,7 +48,8 @@ void printAST(Node* root){
     if (root==NULL)
         return;
     printAST(root->left);
-    printf("Node: Type = %d, Value = %s\n", root->type, root->value ? root->value : "NULL");
+    char* typeS = tokenString(root->type);
+    printf("Node: Type = %s, Value = %s\n", typeS, root->value ? root->value : "NULL");
     printAST(root->right);
 }
 
@@ -51,11 +66,16 @@ Node* parsePrimary (Token** currentToken){
 
 Token *parser(Token* tokens){
     Token *current_token = &tokens[0];
-    Node* root = createNode(BEGINNING, "Beginning Token");
-    Node* left = createNode(KEYWORD, "print");
-    Node* right = createNode(INT, "10");
-    root->left = left;
-    root->right = right;
+    Node* root = createNode(current_token->type, current_token->stringValue);
+    current_token++;
+    if (current_token->type!=SEPARATOR || current_token->separatorValue != '('){
+        printf("Expected ( \n ");
+        exit(1);
+    }
+    else {
+        Node* open_paren_node = createNode(current_token->type, "(");
+        root->right = open_paren_node;
+    }
     printAST(root);
 }
 
