@@ -64,7 +64,7 @@ Node* parsePrimary (Token** currentToken){
     exit(1);
 }
 
-Token *parser(Token* tokens){
+Node *parser(Token* tokens){
     Token *current_token = &tokens[0];
     Node* root = createNode(current_token->type, current_token->stringValue);
     current_token++;
@@ -111,7 +111,11 @@ Token *parser(Token* tokens){
         root->right = semi_node;
         current_token++;
     }
+
+
+
     printAST(root);
+    return root;
 }
 
 
