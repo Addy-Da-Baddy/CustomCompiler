@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include "lexer.h"
 
+
 typedef struct Node{
     TokenType type;
     char* value;
@@ -66,40 +67,37 @@ Node* parser(Token* tokens) {
     Node* open_paren_node = createNode(current_token->type, "(");
     root->left = open_paren_node;
     current_token++;
-
+    //creating an expression node to handle expression chain
+    Node* exprNode = NULL;
     // Parse first number
     if (current_token->type != INT) {
         printf("Expected integer\n");
         exit(1);
-    }
+    } else {
     char* strVal = (char*)malloc(100);
     sprintf(strVal, "%d", current_token->intValue);
-    Node* numNode = createNode(current_token->type, strVal);
+    exprNode = createNode(current_token->type, strVal);
     current_token++;
+    }
 
-    // If next token is an operator, create operator node
-    if (current_token->type == OPERATOR) {
+    while (current_token->type == OPERATOR){
         Node* opNode = createNode(current_token->type, current_token->operatorValue);
-        opNode->left = numNode;
+        opNode->left = exprNode ;
         current_token++;
 
-        // Parse second number
-        if (current_token->type != INT) {
+        if (current_token->type != INT){
             printf("Expected integer after operator\n");
             exit(1);
         }
+        char* strVal = (char*)malloc(100);
         strVal = (char*)malloc(100);
         sprintf(strVal, "%d", current_token->intValue);
-        Node* secondNum = createNode(current_token->type, strVal);
-        opNode->right = secondNum;
+        Node* rightNode = createNode(current_token->type, strVal);
+        opNode->right = rightNode;
         current_token++;
-        
-        // Attach operator node to open parenthesis
-        open_paren_node->left = opNode;
-    } else {
-        // Single number case
-        open_paren_node->left = numNode;
+        exprNode = opNode;
     }
+    open_paren_node->left = exprNode;
 
     if (current_token->type != SEPARATOR || current_token->separatorValue != ')') {
         printf("Expected )\n");
