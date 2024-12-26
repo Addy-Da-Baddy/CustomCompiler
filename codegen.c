@@ -30,7 +30,7 @@ void traverse_tree (Node* node, int is_left, FILE *file){
     }
     for(size_t i = 0; node->value[i] != '\0'; i++){
         printf("%c", node->value[i]);
-    }
+    } 
     printf("\n");
     traverse_tree(node->left, 1, file);
     traverse_tree(node->right, 0, file);
@@ -42,7 +42,6 @@ int generate_code (Node* root){
     fprintf(file, "section .text\n");
     fprintf(file, "  global _start\n\n");
     fprintf(file, "_start:\n");
-  //print_tree(root, 0, "root");
 
     traverse_tree(root, 0, file);
     fclose(file);

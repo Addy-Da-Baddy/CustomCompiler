@@ -22,7 +22,8 @@ typedef struct {
     TokenType type;
     union {
         int intValue;          // For integer literals
-        char* stringValue;     // For keywords, identifiers, and strings
+        char* stringValue;
+        char* value;     // For keywords, identifiers, and strings
         char separatorValue;   // For separators like ';', '(', ')'
         char operatorValue[3]; // For operators, can hold up to two characters + null terminator
     };
