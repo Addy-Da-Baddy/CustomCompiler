@@ -3,6 +3,6 @@ section .text
 
 _start:
 mov rax, 60
- mov rdi, 3 
- mov rdi, 5 
+ mov rdi, 7
+ sub rdi, 2
 syscall
