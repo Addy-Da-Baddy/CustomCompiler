@@ -23,7 +23,16 @@ void traverse_tree(Node* node, int is_left, FILE *file) {
             fprintf(file, "    add rdi, %s\n", node->right->value);
         } else if (strcmp(node->value, "-") == 0) {
             fprintf(file, "    sub rdi, %s\n", node->right->value);
-        }
+        } else if (strcmp(node->value, "*") == 0) {
+            fprintf(file, "    mov rsi, %s\n", node->right->value);
+            fprintf(file, "    imul rdi,rsi \n");
+        } else if (strcmp(node->value, "/") == 0) {
+            fprintf(file, "    mov rax, rdi\n");                    // Move the dividend into rax
+            fprintf(file, "    mov rsi, %s\n", node->right->value); // Load the divisor into rsi
+            fprintf(file, "    idiv rsi\n");                        // Perform division rdx:rax / rsi
+            fprintf(file, "    mov rdi, rax\n");   
+            fprintf(file, "    mov rax, 60\n")    ;             // Move the quotient back to rdi
+    }
     }
 
     if (strcmp(node->value, ";") == 0) {
