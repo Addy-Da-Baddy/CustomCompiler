@@ -2,7 +2,9 @@ section .text
     global _start
 
 _start:
-    mov rdi, 9
-    mov rax, 60
-    mov rdi, 6
-    syscall
+    push rbp
+    mov rbp, rsp
+    sub rsp, 1024
+    mov QWORD [rbp - 8], 3
+    mov rsp, rbp
+    pop rbp

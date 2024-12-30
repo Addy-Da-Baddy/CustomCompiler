@@ -31,7 +31,7 @@ void traverse_tree(Node* node, int is_left, FILE *file) {
             int offset;
             hashmap_get(variables, id_node->value, &offset);
             fprintf(file, "    mov QWORD [rbp - %d], %s\n", 
-            offset, value_node->value);
+                   offset, value_node->value);
         }
         return;
     }

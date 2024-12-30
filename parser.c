@@ -43,74 +43,78 @@ Node* createNode(TokenType type, char* value) {
     return newNode;
 }
 
-void printAST(Node* root) {
+void printAST(Node* root, int depth) {
     if (root == NULL)
         return;
+
+    // Indentation for visualizing depth
+    for (int i = 0; i < depth; ++i) {
+        printf("  "); // Indentation
+    }
+
+    // Convert type to string
     char* typeS = tokenString(root->type);
     printf("Node: Type = %s, Value = %s\n", typeS, root->value ? root->value : "NULL");
-    printAST(root->left);
-    printAST(root->right);
+
+    // Recursively print children
+    printAST(root->left, depth + 1);
+    printAST(root->right, depth + 1);
 }
 
+
 Node* handle_exit_syscall(Token** current_token) {
+    // Create node for 'exit'
     Node* current_node = createNode((*current_token)->type, (*current_token)->stringValue);
-    (*current_token)++;
-    
+    (*current_token)++;  // Move to next token
+
+    // Check if it's followed by an opening parenthesis
     if ((*current_token)->type != SEPARATOR || (*current_token)->separatorValue != '(') {
         printf("Expected (\n");
         exit(1);
     }
     Node* open_paren_node = createNode((*current_token)->type, "(");
     current_node->left = open_paren_node;
-    (*current_token)++;
-    
+    (*current_token)++;  // Move past '('
+
+    // Handle the expression inside the parentheses
     Node* exprNode = NULL;
-    if ((*current_token)->type != INT) {
-        printf("Expected integer\n");
-        exit(1);
-    } else {
+    if ((*current_token)->type == IDENTIFIER || (*current_token)->type == INT) {
+        // If it's an identifier or an integer, process it
         char* strVal = (char*)malloc(20);
-        sprintf(strVal, "%d", (*current_token)->intValue);
+        if ((*current_token)->type == IDENTIFIER) {
+            strVal = strdup((*current_token)->stringValue);  // Store the identifier
+        } else {
+            sprintf(strVal, "%d", (*current_token)->intValue);  // Store the integer
+        }
         exprNode = createNode((*current_token)->type, strVal);
         free(strVal);
-        (*current_token)++;
+        (*current_token)++;  // Move past the expression
+    } else {
+        printf("Expected an expression inside parentheses\n");
+        exit(1);
     }
-    
-    while ((*current_token)->type == OPERATOR) {
-        Node* opNode = createNode((*current_token)->type, (*current_token)->operatorValue);
-        opNode->left = exprNode;
-        (*current_token)++;
-        
-        if ((*current_token)->type != INT) {
-            printf("Expected integer after operator\n");
-            exit(1);
-        }
-        char* strVal = (char*)malloc(20);
-        sprintf(strVal, "%d", (*current_token)->intValue);
-        Node* rightNode = createNode((*current_token)->type, strVal);
-        free(strVal);
-        opNode->right = rightNode;
-        (*current_token)++;
-        exprNode = opNode;
-    }
+
+    // Link the expression to the open parenthesis node
     open_paren_node->left = exprNode;
-    
+
+    // Check for closing parenthesis ')'
     if ((*current_token)->type != SEPARATOR || (*current_token)->separatorValue != ')') {
         printf("Expected )\n");
         exit(1);
     }
     Node* close_paren_node = createNode((*current_token)->type, ")");
     open_paren_node->right = close_paren_node;
-    (*current_token)++;
-    
+    (*current_token)++;  // Move past ')'
+
+    // Ensure the statement ends with a semicolon
     if ((*current_token)->type != SEPARATOR || (*current_token)->separatorValue != ';') {
         printf("Expected ;\n");
         exit(1);
     }
     Node* semi_node = createNode((*current_token)->type, ";");
     current_node->right = semi_node;
-    (*current_token)++;
-    
+    (*current_token)++;  // Move past ';'
+
     return current_node;
 }
 
@@ -221,6 +225,6 @@ Node* parser(Token* tokens) {
         }
     }
     
-    printAST(root);
+    printAST(root,0);
     return root;
 }
