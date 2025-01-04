@@ -29,7 +29,7 @@ char* tokenString(TokenType token) {
 Node* createNode(TokenType type, char* value) {
     Node* newNode = (Node*)malloc(sizeof(Node));
     if (!newNode) {
-        printf("MemLoc failiure. Retry. \n");
+        printf("MemLoc failure. Retry. \n");
         exit(1);
     }
     newNode->type = type;
@@ -43,78 +43,95 @@ Node* createNode(TokenType type, char* value) {
     return newNode;
 }
 
-void printAST(Node* root, int depth) {
+void printAST(Node* root) {
     if (root == NULL)
         return;
-
-    // Indentation for visualizing depth
-    for (int i = 0; i < depth; ++i) {
-        printf("  "); // Indentation
-    }
-
-    // Convert type to string
     char* typeS = tokenString(root->type);
     printf("Node: Type = %s, Value = %s\n", typeS, root->value ? root->value : "NULL");
-
-    // Recursively print children
-    printAST(root->left, depth + 1);
-    printAST(root->right, depth + 1);
+    printAST(root->left);
+    printAST(root->right);
 }
 
+Node* parse_expression(Token** current_token) {
+    Node* exprNode = NULL;
+    
+    // Handle first operand
+    if ((*current_token)->type == INT) {
+        char* strVal = (char*)malloc(20);
+        sprintf(strVal, "%d", (*current_token)->intValue);
+        exprNode = createNode((*current_token)->type, strVal);
+        free(strVal);
+        (*current_token)++;
+    } 
+    else if ((*current_token)->type == IDENTIFIER) {
+        exprNode = createNode((*current_token)->type, (*current_token)->stringValue);
+        (*current_token)++;
+    }
+    else {
+        printf("Expected integer or identifier\n");
+        exit(1);
+    }
+    
+    // Handle operators and subsequent operands
+    while ((*current_token)->type == OPERATOR) {
+        Node* opNode = createNode((*current_token)->type, (*current_token)->operatorValue);
+        opNode->left = exprNode;
+        (*current_token)++;
+        
+        if ((*current_token)->type == INT) {
+            char* strVal = (char*)malloc(20);
+            sprintf(strVal, "%d", (*current_token)->intValue);
+            Node* rightNode = createNode((*current_token)->type, strVal);
+            free(strVal);
+            opNode->right = rightNode;
+        }
+        else if ((*current_token)->type == IDENTIFIER) {
+            Node* rightNode = createNode((*current_token)->type, (*current_token)->stringValue);
+            opNode->right = rightNode;
+        }
+        else {
+            printf("Expected integer or identifier after operator\n");
+            exit(1);
+        }
+        (*current_token)++;
+        exprNode = opNode;
+    }
+    
+    return exprNode;
+}
 
 Node* handle_exit_syscall(Token** current_token) {
-    // Create node for 'exit'
     Node* current_node = createNode((*current_token)->type, (*current_token)->stringValue);
-    (*current_token)++;  // Move to next token
-
-    // Check if it's followed by an opening parenthesis
+    (*current_token)++;
+    
     if ((*current_token)->type != SEPARATOR || (*current_token)->separatorValue != '(') {
         printf("Expected (\n");
         exit(1);
     }
     Node* open_paren_node = createNode((*current_token)->type, "(");
     current_node->left = open_paren_node;
-    (*current_token)++;  // Move past '('
-
-    // Handle the expression inside the parentheses
-    Node* exprNode = NULL;
-    if ((*current_token)->type == IDENTIFIER || (*current_token)->type == INT) {
-        // If it's an identifier or an integer, process it
-        char* strVal = (char*)malloc(20);
-        if ((*current_token)->type == IDENTIFIER) {
-            strVal = strdup((*current_token)->stringValue);  // Store the identifier
-        } else {
-            sprintf(strVal, "%d", (*current_token)->intValue);  // Store the integer
-        }
-        exprNode = createNode((*current_token)->type, strVal);
-        free(strVal);
-        (*current_token)++;  // Move past the expression
-    } else {
-        printf("Expected an expression inside parentheses\n");
-        exit(1);
-    }
-
-    // Link the expression to the open parenthesis node
+    (*current_token)++;
+    
+    // Parse expression inside parentheses
+    Node* exprNode = parse_expression(current_token);
     open_paren_node->left = exprNode;
-
-    // Check for closing parenthesis ')'
+    
     if ((*current_token)->type != SEPARATOR || (*current_token)->separatorValue != ')') {
         printf("Expected )\n");
         exit(1);
     }
     Node* close_paren_node = createNode((*current_token)->type, ")");
     open_paren_node->right = close_paren_node;
-    (*current_token)++;  // Move past ')'
-
-    // Ensure the statement ends with a semicolon
+    (*current_token)++;
+    
     if ((*current_token)->type != SEPARATOR || (*current_token)->separatorValue != ';') {
         printf("Expected ;\n");
         exit(1);
     }
     Node* semi_node = createNode((*current_token)->type, ";");
     current_node->right = semi_node;
-    (*current_token)++;  // Move past ';'
-
+    (*current_token)++;
+    
     return current_node;
 }
 
@@ -180,7 +197,6 @@ Node* parser(Token* tokens) {
                     exit(1);
                 }
                 
-                // Link the nodes together
                 if (root->left == NULL) {
                     root->left = current_node;
                 } else if (last_node != NULL) {
@@ -190,41 +206,22 @@ Node* parser(Token* tokens) {
                 break;
 
             case OPERATOR:
-                // TODO: Handle operators outside of statements
-                current_token++;
-                break;
-
             case IDENTIFIER:
-                // TODO: Handle identifiers outside of statements
-                current_token++;
-                break;
-
             case INT:
-                // TODO: Handle integers outside of statements
-                current_token++;
-                break;
-
             case SEPARATOR:
-                // TODO: Handle separators outside of statements
-                current_token++;
-                break;
-
             case STRING:
-                // TODO: Handle strings
-                current_token++;
-                break;
-
             case COMP:
-                // TODO: Handle comparison operators
-                current_token++;
+                printf("Unexpected token type: %s at start of statement\n", 
+                tokenString(current_token->type));
+                exit(1);
                 break;
 
             default:
-                printf("Unexpected token type: %s\n", tokenString(current_token->type));
+                printf("Unknown token type: %s\n", tokenString(current_token->type));
                 exit(1);
         }
     }
     
-    printAST(root,0);
+    printAST(root);
     return root;
 }

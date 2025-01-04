@@ -1,2 +1,1 @@
-int x = 3;
-exit(x);
+exit(4+2-1);
