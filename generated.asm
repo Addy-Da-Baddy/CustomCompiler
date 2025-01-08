@@ -4,19 +4,19 @@ section .text
 _start:
     push rbp
     mov rbp, rsp
-    sub rsp, 1024
-    mov rax, 60
-    mov rdi, 4
+    mov rdi, 7
+    mov rdi, 3
+    mov rdi, 7
     push rdi
-    mov rdi, 2
-    mov rsi, rdi
-    pop rdi
-    add rdi, rsi
+    mov rdi, 3
+    pop rsi
+    imul rdi, rsi
     push rdi
     mov rdi, 1
-    mov rsi, rdi
-    pop rdi
-    sub rdi, rsi
+    pop rsi
+    sub rsi, rdi
+    mov rdi, rsi
+    mov rax, 60
     syscall
     mov rsp, rbp
     pop rbp

@@ -7,134 +7,102 @@
 #include "parser.h"
 #include "hashmap.h"
 
-void generateOperatorCode(Node* node, FILE* file);
+static HashMap* variables;
 
-// Global variable map for tracking stack offsets
-HashMap* variables;
-int next_offset = 8;  // Start after saved rbp
+void init_generator() {
+    variables = hashmap_create();
+}
 
-void traverse_tree(Node* node, int is_left, FILE *file) {
+void cleanup_generator() {
+    hashmap_free(variables);
+}
+
+// Helper function to handle expressions
+void handle_expression(Node* node, FILE* file) {
+    if (node->type == INT) {
+        fprintf(file, "    mov rdi, %s\n", node->value); // Load integer value into rdi
+    } 
+    else if (node->type == IDENTIFIER) {
+        int value = hashmap_get(variables, node->value);
+        if (value == -1) {
+            printf("Error: Undefined variable %s\n", node->value);
+            exit(1);
+        }
+        fprintf(file, "    mov rdi, %d\n", value); // Load variable value into rdi
+    }
+    else if (node->type == OPERATOR) {
+        // Left operand
+        handle_expression(node->left, file);
+        fprintf(file, "    push rdi\n"); // Save left operand on the stack
+
+        // Right operand
+        handle_expression(node->right, file);
+        fprintf(file, "    pop rsi\n");  // Load left operand into rsi
+
+        if (strcmp(node->value, "+") == 0) {
+            fprintf(file, "    add rdi, rsi\n"); // rdi = rdi + rsi
+        } 
+        else if (strcmp(node->value, "-") == 0) {
+            fprintf(file, "    sub rsi, rdi\n"); // rsi = rsi - rdi
+            fprintf(file, "    mov rdi, rsi\n"); // Move result to rdi
+        } 
+        else if (strcmp(node->value, "*") == 0) {
+            fprintf(file, "    imul rdi, rsi\n"); // rdi = rdi * rsi
+        } 
+        else if (strcmp(node->value, "/") == 0) {
+            fprintf(file, "    mov rax, rsi\n"); // Move left operand to rax
+            fprintf(file, "    cqo\n");         // Sign-extend rax into rdx:rax
+            fprintf(file, "    idiv rdi\n");    // rax = rax / rdi
+            fprintf(file, "    mov rdi, rax\n"); // Move result to rdi
+        }
+    }
+}
+
+void traverse_tree(Node* node, FILE* file) {
     if (node == NULL) return;
 
     // Handle variable declarations
     if (node->type == KEYWORD && strcmp(node->value, "int") == 0) {
-        Node* id_node = node->left;  // Get identifier node
-        Node* equal_node = id_node->right;  // Get equals node
-        Node* value_node = equal_node->left;  // Get value node
+        Node* id_node = node->left;
+        Node* assign_node = id_node->right;
         
-        // Add variable to hashmap with next available offset
-        hashmap_put(variables, id_node->value, next_offset);
-        next_offset += 8;
+        // Calculate the right side
+        handle_expression(assign_node->left, file);
         
-        // Generate assembly for assignment
-        if (value_node->type == INT) {
-            int offset;
-            hashmap_get(variables, id_node->value, &offset);
-            fprintf(file, "    mov QWORD [rbp - %d], %s\n", 
-            offset, value_node->value);
-        }
-        return;
+        // Store in variable
+        int value = atoi(assign_node->left->value); // Get the value from the AST
+        hashmap_put(variables, id_node->value, value);
     }
 
     // Handle exit syscall
-    if (strcmp(node->value, "exit") == 0) {
-        fprintf(file, "    mov rax, 60\n");
-        traverse_tree(node->left, 1, file);
-        traverse_tree(node->right, 0, file);
-        return;
+    else if (node->type == KEYWORD && strcmp(node->value, "exit") == 0) {
+        // Handle expression inside exit()
+        handle_expression(node->left->left, file);
+        fprintf(file, "    mov rax, 60\n"); // Syscall number for exit
+        fprintf(file, "    syscall\n");     // Invoke exit syscall
     }
 
-    // Handle variable references
-    if (node->type == IDENTIFIER) {
-        int offset;
-        if (hashmap_get(variables, node->value, &offset)) {
-            fprintf(file, "    mov rdi, QWORD [rbp - %d]\n", offset);
-        } else {
-            fprintf(stderr, "Undefined variable: %s\n", node->value);
-            exit(1);
-        }
-        return;
-    }
-
-    // Handle integer literals
-    if (node->type == INT) {
-        fprintf(file, "    mov rdi, %s\n", node->value);
-        return;
-    }
-
-    // Handle operators
-    if (node->type == OPERATOR) {
-        generateOperatorCode(node, file);
-        return;
-    }
-
-    // Handle semicolon for syscall
-    if (strcmp(node->value, ";") == 0) {
-        fprintf(file, "    syscall\n");
-    }
-
-    traverse_tree(node->left, 1, file);
-    traverse_tree(node->right, 0, file);
-}
-
-void generateOperatorCode(Node* node, FILE* file) {
-    // First, evaluate left side
-    traverse_tree(node->left, 1, file);
-    
-    // Save left result if needed
-    fprintf(file, "    push rdi\n");
-    
-    // Evaluate right side
-    traverse_tree(node->right, 0, file);
-    
-    // Move right result to rsi
-    fprintf(file, "    mov rsi, rdi\n");
-    
-    // Restore left result
-    fprintf(file, "    pop rdi\n");
-
-    // Perform operation
-    if (strcmp(node->value, "+") == 0) {
-        fprintf(file, "    add rdi, rsi\n");
-    } else if (strcmp(node->value, "-") == 0) {
-        fprintf(file, "    sub rdi, rsi\n");
-    } else if (strcmp(node->value, "*") == 0) {
-        fprintf(file, "    imul rdi, rsi\n");
-    } else if (strcmp(node->value, "/") == 0) {
-        fprintf(file, "    mov rax, rdi\n");
-        fprintf(file, "    xor rdx, rdx\n");
-        fprintf(file, "    idiv rsi\n");
-        fprintf(file, "    mov rdi, rax\n");
-    } else {
-        fprintf(stderr, "Unrecognized operator: %s\n", node->value);
-    }
+    // Continue traversing if not handled above
+    traverse_tree(node->left, file);
+    traverse_tree(node->right, file);
 }
 
 int generate_code(Node* root) {
     FILE *file = fopen("generated.asm", "w");
     assert(file != NULL && "FILE COULD NOT BE OPENED\n");
     
-    // Initialize variable tracking
-    variables = hashmap_create();
-    
-    // Set up the assembly file
     fprintf(file, "section .text\n");
     fprintf(file, "    global _start\n\n");
     fprintf(file, "_start:\n");
-    
-    // Set up stack frame
     fprintf(file, "    push rbp\n");
     fprintf(file, "    mov rbp, rsp\n");
-    fprintf(file, "    sub rsp, 1024\n");  // Reserve plenty of stack space
+
+    init_generator();
+    traverse_tree(root, file);
+    cleanup_generator();
     
-    // Generate code from AST
-    traverse_tree(root, 0, file);
-    
-    // Clean up stack frame
     fprintf(file, "    mov rsp, rbp\n");
     fprintf(file, "    pop rbp\n");
-    
     fclose(file);
-    hashmap_free(variables);
     return 0;
 }
