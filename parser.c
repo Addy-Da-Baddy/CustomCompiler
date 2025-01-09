@@ -3,6 +3,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "lexer.h"
+#include "hashmap.h"
 
 typedef struct Node {
     TokenType type;
@@ -10,6 +11,9 @@ typedef struct Node {
     struct Node* right; // Used to chain statements sequentially
     struct Node* left;  // Used for hierarchical structure (e.g., expressions)
 } Node;
+
+// Global symbol table
+Hashmap* symbol_table = NULL;
 
 char* tokenString(TokenType token) {
     switch (token) {
@@ -43,25 +47,21 @@ Node* createNode(TokenType type, char* value) {
     return newNode;
 }
 
-// Helper function to print indentation
 void printIndent(int level) {
     for (int i = 0; i < level; i++) {
         printf("  ");
     }
 }
 
-// Recursive function to print the AST in tree format
 void printAST(Node* root, int level) {
     if (root == NULL) {
         return;
     }
 
-    // Print the current node with indentation
     printIndent(level);
     char* typeS = tokenString(root->type);
     printf("Node: Type = %s, Value = %s\n", typeS, root->value ? root->value : "NULL");
 
-    // Recursively print the left and right subtrees
     printAST(root->left, level + 1);
     printAST(root->right, level);
 }
@@ -77,7 +77,15 @@ Node* parse_expression(Token** current_token) {
         free(strVal);
         (*current_token)++;
     } else if ((*current_token)->type == IDENTIFIER) {
-        exprNode = createNode((*current_token)->type, (*current_token)->stringValue);
+        int value = hashmap_get(symbol_table, (*current_token)->stringValue);
+        if (value == -1) {
+            printf("Undefined variable: %s\n", (*current_token)->stringValue);
+            exit(1);
+        }
+        char* strVal = (char*)malloc(20);
+        sprintf(strVal, "%d", value);
+        exprNode = createNode(INT, strVal);
+        free(strVal);
         (*current_token)++;
     } else {
         printf("Expected integer or identifier\n");
@@ -97,7 +105,15 @@ Node* parse_expression(Token** current_token) {
             free(strVal);
             opNode->right = rightNode;
         } else if ((*current_token)->type == IDENTIFIER) {
-            Node* rightNode = createNode((*current_token)->type, (*current_token)->stringValue);
+            int value = hashmap_get(symbol_table, (*current_token)->stringValue);
+            if (value == -1) {
+                printf("Undefined variable: %s\n", (*current_token)->stringValue);
+                exit(1);
+            }
+            char* strVal = (char*)malloc(20);
+            sprintf(strVal, "%d", value);
+            Node* rightNode = createNode(INT, strVal);
+            free(strVal);
             opNode->right = rightNode;
         } else {
             printf("Expected integer or identifier after operator\n");
@@ -122,7 +138,6 @@ Node* handle_exit_syscall(Token** current_token) {
     current_node->left = open_paren_node;
     (*current_token)++;
 
-    // Parse expression inside parentheses
     Node* exprNode = parse_expression(current_token);
     open_paren_node->left = exprNode;
 
@@ -165,21 +180,8 @@ Node* parse_variables(Token** current_token) {
     idNode->right = equalNode;
     (*current_token)++;
 
-    if ((*current_token)->type != INT && (*current_token)->type != IDENTIFIER) {
-        printf("Expected integer or identifier\n");
-        exit(1);
-    }
-    Node* valueNode;
-    if ((*current_token)->type == INT) {
-        char* strVal = (char*)malloc(20);
-        sprintf(strVal, "%d", (*current_token)->intValue);
-        valueNode = createNode((*current_token)->type, strVal);
-        free(strVal);
-    } else {
-        valueNode = createNode((*current_token)->type, (*current_token)->stringValue);
-    }
+    Node* valueNode = parse_expression(current_token);
     equalNode->left = valueNode;
-    (*current_token)++;
 
     if ((*current_token)->type != SEPARATOR || (*current_token)->separatorValue != ';') {
         printf("Expected ;\n");
@@ -189,10 +191,14 @@ Node* parse_variables(Token** current_token) {
     var_node->right = semiNode;
     (*current_token)++;
 
+    // Insert variable into symbol table
+    hashmap_insert(symbol_table, idNode->value, atoi(valueNode->value));
+
     return var_node;
 }
 
 Node* parser(Token* tokens) {
+    symbol_table = hashmap_create();
     Token* current_token = tokens;
     Node* root = createNode(BEGINNING, "START OF PROGRAM");
     Node* current_node = NULL;
